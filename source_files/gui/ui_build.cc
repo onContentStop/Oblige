@@ -287,21 +287,13 @@ void UI_Build::Prog_Nodes(int pos, int limit) {
 }
 
 void UI_Build::SetStatus(std::string_view msg) {
-    int limit = (int)sizeof(status_label);
-
-#ifdef WIN32
-#undef min
-#endif
-    strncpy(status_label, msg.data(), std::min<int>(limit, msg.size()));
-
-    status_label[limit - 1] = 0;
-
-    if (StringCaseCmp(status_label, "Success") == 0) {
-        main_win->label(
+    if (StringCaseCmp(msg, "Success") == 0) {
+        main_win->copy_label(
             fmt::format("{} {}", _(OBSIDIAN_TITLE), OBSIDIAN_VERSION).c_str());
     }
 
-    status->label(status_label);
+    std::string status_label{msg};
+    status->copy_label(status_label.c_str());
     status->redraw();
 }
 
@@ -353,7 +345,7 @@ void UI_Build::AddStatusStep(const char *name) {
     strcat(status_label, " ");
     strcat(status_label, name);
 
-    status->label(status_label);
+    status->copy_label(status_label);
     status->redraw();
 }
 
