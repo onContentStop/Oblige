@@ -52,17 +52,17 @@ void WriteLump(std::string_view name, qLump_c *lump);
 //   'P' : patches   //   'F' : flats
 //   'S' : sprites   //   'C' : colormaps (Boom)
 //   'T' : textures (Zdoom)
-void AddSectionLump(char section, const char *name, qLump_c *lump);
+void AddSectionLump(char section, std::string name, qLump_c *lump);
 
 void HeaderPrintf(const char *str, ...);
 
 void AddVertex(int x, int y);
 
-void AddSector(int f_h, const char *f_tex, int c_h, const char *c_tex,
+void AddSector(int f_h, std::string f_tex, int c_h, std::string c_tex,
                int light, int special, int tag);
 
-void AddSidedef(int sector, const char *l_tex, const char *m_tex,
-                const char *u_tex, int x_offset, int y_offset);
+void AddSidedef(int sector, std::string l_tex, std::string m_tex,
+                std::string u_tex, int x_offset, int y_offset);
 
 void AddLinedef(int vert1, int vert2, int side1, int side2, int type, int flags,
                 int tag, const byte *args);

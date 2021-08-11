@@ -69,8 +69,8 @@ static int errors_seen;
 
 std::string current_engine;
 std::string map_format;
-int build_nodes;
-int build_reject;
+bool build_nodes;
+bool build_reject;
 
 static bool UDMF_mode;
 
@@ -132,7 +132,7 @@ static void WriteBehavior() {
     raw_behavior_header_t behavior;
 
     std::string_view acs{"ACS"};
-    std::copy(acs.begin(), acs.end(), behavior.marker.begin());
+    std::copy(acs.data(), acs.data() + acs.size(), behavior.marker.data());
 
     behavior.offset = LE_U32(8);
     behavior.func_num = 0;
@@ -165,7 +165,7 @@ static void WriteSections() {
         WriteLump(section_markers[k][0], nullptr, 0);
 
         for (auto *lump : *sections[k]) {
-            WriteLump(lump->GetName(), lump);
+            WriteLump(lump->name.c_str(), lump);
         }
 
         WriteLump(section_markers[k][1], nullptr, 0);
@@ -174,7 +174,7 @@ static void WriteSections() {
 
 }  // namespace Doom
 
-void Doom::AddSectionLump(char ch, const char *name, qLump_c *lump) {
+void Doom::AddSectionLump(char ch, std::string name, qLump_c *lump) {
     int k;
     switch (ch) {
         case 'P':
@@ -197,7 +197,7 @@ void Doom::AddSectionLump(char ch, const char *name, qLump_c *lump) {
             Main::FatalError("DM_AddSectionLump: bad section '{}'\n", ch);
     }
 
-    lump->SetName(name);
+    lump->name = name;
 
     sections[k]->push_back(lump);
 }
@@ -349,7 +349,7 @@ void Doom::AddVertex(int x, int y) {
     }
 }
 
-void Doom::AddSector(int f_h, const char *f_tex, int c_h, const char *c_tex,
+void Doom::AddSector(int f_h, std::string f_tex, int c_h, std::string c_tex,
                      int light, int special, int tag) {
     if (not UDMF_mode) {
         raw_sector_t sec;
@@ -357,8 +357,8 @@ void Doom::AddSector(int f_h, const char *f_tex, int c_h, const char *c_tex,
         sec.floor_h = LE_S16(f_h);
         sec.ceil_h = LE_S16(c_h);
 
-        std::copy(f_tex, f_tex + 8, sec.floor_tex.begin());
-        std::copy(c_tex, c_tex + 8, sec.ceil_tex.begin());
+        std::copy(f_tex.data(), f_tex.data() + 8, sec.floor_tex.data());
+        std::copy(c_tex.data(), c_tex.data() + 8, sec.ceil_tex.data());
 
         sec.light = LE_U16(light);
         sec.special = LE_U16(special);
@@ -368,8 +368,8 @@ void Doom::AddSector(int f_h, const char *f_tex, int c_h, const char *c_tex,
         textmap_lump->Printf("\nsector\n{\n");
         textmap_lump->Printf("\theightfloor = %d;\n", f_h);
         textmap_lump->Printf("\theightceiling = %d;\n", c_h);
-        textmap_lump->Printf("\ttexturefloor = \"%s\";\n", f_tex);
-        textmap_lump->Printf("\ttextureceiling = \"%s\";\n", c_tex);
+        textmap_lump->Printf("\ttexturefloor = \"%s\";\n", f_tex.c_str());
+        textmap_lump->Printf("\ttextureceiling = \"%s\";\n", c_tex.c_str());
         textmap_lump->Printf("\tlightlevel = %d;\n", light);
         textmap_lump->Printf("\tspecial = %d;\n", special);
         textmap_lump->Printf("\tid = %d;\n", tag);
@@ -378,16 +378,16 @@ void Doom::AddSector(int f_h, const char *f_tex, int c_h, const char *c_tex,
     }
 }
 
-void Doom::AddSidedef(int sector, const char *l_tex, const char *m_tex,
-                      const char *u_tex, int x_offset, int y_offset) {
+void Doom::AddSidedef(int sector, std::string l_tex, std::string m_tex,
+                      std::string u_tex, int x_offset, int y_offset) {
     if (not UDMF_mode) {
         raw_sidedef_t side;
 
         side.sector = LE_S16(sector);
 
-        std::copy(l_tex, l_tex + 8, side.lower_tex.begin());
-        std::copy(m_tex, m_tex + 8, side.mid_tex.begin());
-        std::copy(u_tex, u_tex + 8, side.upper_tex.begin());
+        std::copy(l_tex.data(), l_tex.data() + 8, side.lower_tex.data());
+        std::copy(m_tex.data(), m_tex.data() + 8, side.mid_tex.data());
+        std::copy(u_tex.data(), u_tex.data() + 8, side.upper_tex.data());
 
         side.x_offset = LE_S16(x_offset);
         side.y_offset = LE_S16(y_offset);
@@ -396,9 +396,9 @@ void Doom::AddSidedef(int sector, const char *l_tex, const char *m_tex,
         textmap_lump->Printf("\nsidedef\n{\n");
         textmap_lump->Printf("\toffsetx = %d;\n", x_offset);
         textmap_lump->Printf("\toffsety = %d;\n", y_offset);
-        textmap_lump->Printf("\ttexturetop = \"%s\";\n", u_tex);
-        textmap_lump->Printf("\ttexturemiddle = \"%s\";\n", m_tex);
-        textmap_lump->Printf("\ttexturebottom = \"%s\";\n", l_tex);
+        textmap_lump->Printf("\ttexturetop = \"%s\";\n", u_tex.c_str());
+        textmap_lump->Printf("\ttexturemiddle = \"%s\";\n", m_tex.c_str());
+        textmap_lump->Printf("\ttexturebottom = \"%s\";\n", l_tex.c_str());
         textmap_lump->Printf("\tsector = %d;\n", sector);
         textmap_lump->Printf("}\n");
         udmf_sidedefs += 1;
@@ -484,7 +484,7 @@ void Doom::AddLinedef(int vert1, int vert2, int side1, int side2, int type,
             // tag value is UNUSED
 
             if (args) {
-                std::copy(args, args + 5, line.args.begin());
+                std::copy(args, args + 5, line.args.data());
             }
 
             linedef_lump->Append(&line, sizeof(line));
@@ -651,7 +651,7 @@ void Doom::AddThing(int x, int y, int h, int type, int angle, int options,
             thing.special = special;
 
             if (args) {
-                std::copy(args, args + 5, thing.args.begin());
+                std::copy(args, args + 5, thing.args.data());
             }
 
             thing_lump->Append(&thing, sizeof(thing));
@@ -763,97 +763,35 @@ int Doom::NumThings() {
 #include "zdmain.h"
 
 namespace Doom {
+
 static bool BuildNodes(const std::filesystem::path &filename) {
     LogPrintf("\n");
 
-    zdbsp_options options;
-    if (current_engine == "vanilla" || current_engine == "nolimit" ||
-        current_engine == "boom") {
-        options.build_nodes = true;
-        options.build_gl_nodes = false;
-        options.build_gl_only = false;
-        if (build_reject) {
-            options.reject_mode = ERM_Rebuild_NoGL;
-        } else {
-            options.reject_mode = ERM_CreateZeroes;
-        }
-        options.check_polyobjs = false;
-        options.compress_nodes = false;
-        options.compress_gl_nodes = false;
-        options.force_compression = false;
-    } else if (current_engine == "prboom") {
-        options.build_nodes = true;
-        options.build_gl_nodes = false;
-        options.build_gl_only = false;
-        if (build_reject) {
-            options.reject_mode = ERM_Rebuild_NoGL;
-        } else {
-            options.reject_mode = ERM_CreateZeroes;
-        }
-        options.check_polyobjs = false;
-        options.compress_nodes = true;
-        options.compress_gl_nodes = false;
-        options.force_compression = false;
-    } else if (current_engine == "eternity") {
-        options.build_nodes = true;
-        if (UDMF_mode) {
-            options.build_gl_nodes = true;
-            options.build_gl_only = true;
-        } else {
-            options.build_gl_nodes = false;
-            options.build_gl_only = false;
-        }
-        options.reject_mode = ERM_DontTouch;  // Eternity might not play well
-                                              // with ZDBSP's reject builder
-        options.check_polyobjs = true;
-        options.compress_nodes = true;
-        options.compress_gl_nodes = false;
-        options.force_compression = false;
-    } else if (current_engine == "edge") {
+    if (StringCaseCmp(current_engine, "edge") == 0) {
         if (!UDMF_mode) {
             if (!build_nodes) {
                 LogPrintf("Skipping nodes per user selection...\n");
                 return true;
             }
         }
-        options.build_nodes = true;
-        options.build_gl_nodes = true;
-        options.build_gl_only = true;
-        if (!build_reject || UDMF_mode) {
-            options.reject_mode = ERM_DontTouch;
-        } else {
-            options.reject_mode = ERM_Rebuild;
-        }
-        options.check_polyobjs = true;
-        options.compress_nodes = true;
-        options.compress_gl_nodes = false;
-        options.force_compression = false;
-    } else if (current_engine == "zdoom") {
+    }
+    
+    if (StringCaseCmp(current_engine, "zdoom") == 0) {
         if (!build_nodes) {
             LogPrintf("Skipping nodes per user selection...\n");
             return true;
         }
-        options.build_nodes = true;
-        options.build_gl_nodes = true;
-        options.build_gl_only = true;
-        if (!build_reject || UDMF_mode) {
-            options.reject_mode = ERM_DontTouch;
-        } else {
-            options.reject_mode = ERM_Rebuild;
-        }
-        options.check_polyobjs = true;
-        options.compress_nodes = true;
-        options.compress_gl_nodes = true;
-        options.force_compression = true;
     }
-
-    if (zdmain(filename.generic_string().c_str(), options) != 0) {
+        
+    if (zdmain(filename, current_engine, UDMF_mode, build_reject) != 0) {
         Main::ProgStatus(_("ZDBSP Error!"));
         return false;
     }
 
     return true;
+
 }
+
 }  // namespace Doom
 
 //------------------------------------------------------------------------
@@ -871,10 +809,8 @@ class game_interface_c : public ::game_interface_c {
 
     void BeginLevel();
     void EndLevel();
-    void Property(const char *key, const char *value);
+    void Property(std::string key, std::string value);
 
-   private:
-    bool BuildNodes() const;
 };
 }  // namespace Doom
 
@@ -902,10 +838,10 @@ bool Doom::game_interface_c::Start(const char *preset) {
         Main::BackupFile(filename, "old");
     }
 
-    // Need to preempt the rest of this process if we are using Vanilla Doom
+    // Need to preempt the rest of this process for now if we are using Vanilla Doom
     if (main_win) {
         current_engine = ob_get_param("engine");
-        if (current_engine == "vanilla") {
+        if (StringCaseCmp(current_engine, "vanilla") == 0) {
             build_reject = StringToInt(ob_get_param("bool_build_reject"));
             return true;
         }
@@ -918,8 +854,8 @@ bool Doom::game_interface_c::Start(const char *preset) {
 
     if (main_win) {
         main_win->build_box->Prog_Init(20, N_("CSG"));
-        if (current_engine == "zdoom" || current_engine == "edge" ||
-            current_engine == "eternity") {
+        if (StringCaseCmp(current_engine, "zdoom") == 0 || StringCaseCmp(current_engine, "edge") == 0 ||
+            StringCaseCmp(current_engine, "eternity") == 0) {
             build_reject = StringToInt(ob_get_param("bool_build_reject_udmf"));
             map_format = ob_get_param("map_format");
             build_nodes = StringToInt(ob_get_param("bool_build_nodes_udmf"));
@@ -928,7 +864,7 @@ bool Doom::game_interface_c::Start(const char *preset) {
             map_format = "binary";
             build_nodes = true;
         }
-        if (map_format == "udmf") {
+        if (StringCaseCmp(map_format, "udmf") == 0) {
             UDMF_mode = true;
         } else {
             UDMF_mode = false;
@@ -937,13 +873,9 @@ bool Doom::game_interface_c::Start(const char *preset) {
     return true;
 }
 
-bool Doom::game_interface_c::BuildNodes() const {
-    return Doom::BuildNodes(filename);
-}
-
 bool Doom::game_interface_c::Finish(bool build_ok) {
     // Skip DM_EndWAD if using Vanilla Doom
-    if (current_engine != "vanilla") {
+    if (StringCaseCmp(current_engine, "vanilla") != 0) {
         // TODO: handle write errors
         EndWAD();
     } else {
@@ -951,7 +883,7 @@ bool Doom::game_interface_c::Finish(bool build_ok) {
     }
 
     if (build_ok) {
-        build_ok = BuildNodes();
+        build_ok = Doom::BuildNodes(filename);
     }
 
     if (!build_ok) {
@@ -975,11 +907,11 @@ void Doom::game_interface_c::BeginLevel() {
     Doom::BeginLevel();
 }
 
-void Doom::game_interface_c::Property(const char *key, const char *value) {
+void Doom::game_interface_c::Property(std::string key, std::string value) {
     if (StringCaseCmp(key, "level_name") == 0) {
-        level_name = value;
+        level_name = value.c_str();
     } else if (StringCaseCmp(key, "description") == 0) {
-        main_win->build_box->name_disp->copy_label(value);
+        main_win->build_box->name_disp->copy_label(value.c_str());
         main_win->build_box->name_disp->redraw();
     } else if (StringCaseCmp(key, "sub_format") == 0) {
         if (StringCaseCmp(value, "doom") == 0) {
@@ -992,15 +924,15 @@ void Doom::game_interface_c::Property(const char *key, const char *value) {
             LogPrintf("WARNING: unknown DOOM sub_format '%s'\n", value);
         }
     } else if (StringCaseCmp(key, "offset_map") == 0) {
-        dm_offset_map = atoi(value);
+        dm_offset_map = StringToInt(value);
     } else if (StringCaseCmp(key, "ef_solid_type") == 0) {
-        ef_solid_type = atoi(value);
+        ef_solid_type = StringToInt(value);
     } else if (StringCaseCmp(key, "ef_liquid_type") == 0) {
-        ef_liquid_type = atoi(value);
+        ef_liquid_type = StringToInt(value);
     } else if (StringCaseCmp(key, "ef_thing_mode") == 0) {
-        ef_thing_mode = atoi(value);
+        ef_thing_mode = StringToInt(value);
     } else {
-        LogPrintf("WARNING: unknown DOOM property: %s=%s\n", key, value);
+        LogPrintf("WARNING: unknown DOOM property: {}={}\n", key, value);
     }
 }
 
